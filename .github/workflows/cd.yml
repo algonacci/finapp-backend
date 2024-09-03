@@ -1,0 +1,64 @@
+name: cd
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  cd:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Deploy Using ssh
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            cd finapp-backend
+
+            # Stash local changes
+            git stash
+
+            # Pull latest changes
+            git pull origin main
+
+            # Pop stashed changes (optional, remove if you want to discard local changes)
+            git stash pop
+
+            git status
+
+            # Ensure Bun is installed and up to date
+            curl -fsSL https://bun.sh/install | bash
+            source ~/.bashrc
+            export BUN_INSTALL="$HOME/.bun"
+            export PATH="$BUN_INSTALL/bin:$PATH"
+
+            # Verify Bun installation
+            bun --version
+
+            # Install dependencies
+            bun install
+
+            # Ensure npm global bin is in PATH
+            export PATH="$PATH:$(npm config get prefix)/bin"
+
+            # Install PM2 globally if not already installed
+            npm list -g | grep pm2 || npm install -g pm2
+
+            # Reload and restart your application
+            pm2 reload finapp-backend || pm2 start --interpreter $HOME/.bun/bin/bun src/index.ts --name finapp-backend
+            pm2 save
+
+            echo "Current directory: $(pwd)"
+            echo "Bun version: $(bun --version)"
+            echo "PM2 version: $(pm2 -v)"
+            echo "Application files:"
+            ls -la
+            echo "PM2 processes:"
+            pm2 list

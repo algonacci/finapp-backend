@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { db } from "../models/db";
 
 export const finappControllers = (app: Elysia) => {
-  app.get("/", () => {
+  app.get("/transactions", () => {
     const transactions = db.query("SELECT * FROM transactions").all();
     return {
       status: {
